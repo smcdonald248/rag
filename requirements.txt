@@ -8,3 +8,4 @@ octoai-sdk
 python-dotenv
 nest_asyncio
 playwright
+bs4
