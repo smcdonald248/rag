@@ -4,6 +4,7 @@ Description: A really simple RAG demo using OctoAI and Milvus vector database
 """
 
 import os
+import subprocess
 import streamlit as st
 from typing import Any
 from dotenv import load_dotenv
@@ -24,6 +25,7 @@ from helpers import Helpers
 def initiate() -> LLMChain:
     """Init"""
     load_dotenv()
+    subprocess.run(["playwright", "install"])
 
     template: str = """Below is an instruction that describes a task. Write a response that appropriately completes the request.\n Instruction:\n{form_question}\n Response: """
     prompt: PromptTemplate = PromptTemplate.from_template(template)
