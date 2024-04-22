@@ -1,6 +1,6 @@
 """
 Author: Stephen McDonald
-Description: A really simple RAG demo using OctoAI and Milvus vector database
+Description: A really simple RAG demo using Streamlit, OctoAI, and Pincone.io
 """
 
 import os
