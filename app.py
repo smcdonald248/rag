@@ -8,13 +8,12 @@ import octoai.chat
 import streamlit as st
 from dotenv import load_dotenv
 from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
 from langchain_community.embeddings import OctoAIEmbeddings
 from langchain_community.llms.octoai_endpoint import OctoAIEndpoint
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnablePassthrough, Runnable
 from langchain_core.output_parsers import StrOutputParser
 from langchain_pinecone import PineconeVectorStore
-from langchain.prompts import PromptTemplate
-import octoai
 
 from helpers import Helpers
 
@@ -28,6 +27,7 @@ def return_llm(
     temperature: float,
     top_p: float,
 ) -> OctoAIEndpoint:
+    """ returns an OctoAI LLM Endpoint """
     return OctoAIEndpoint(
         endpoint_url="https://text.octoai.run/v1/chat/completions",
         model_kwargs={
@@ -47,6 +47,7 @@ def return_llm(
 
 
 def return_template(rag: bool) -> str:
+    """ returns the prompt template conditionally """
     if rag:
         return """
                     CONTEXT: {context}
@@ -78,40 +79,39 @@ def get_chain(
     """Init"""
 
     if rag:
-        chain = (
+        chain: Runnable = (
             {"context": retriever, "question": RunnablePassthrough()}
             | prompt
             | llm
             | StrOutputParser()
         )
     else:
-        chain = prompt | llm | StrOutputParser()
+        chain: Runnable = prompt | llm | StrOutputParser()
     return chain
 
 
 def exec_llm(form_question: str, llm_chain: LLMChain) -> str:
     """execute the llm chain"""
-    for chunk in llm_chain.stream(form_question):
-        yield chunk
-    # return llm_chain.invoke(form_question) #.get("text")
+    # for chunk in llm_chain.stream(form_question):
+    #     yield chunk
+    return llm_chain.invoke(form_question) #.get("text")
 
 
 def load_vector_store(data: str, embedding: OctoAIEmbeddings, index: str) -> None:
     """load vector database with data from documentation url"""
     PineconeVectorStore.from_documents(data, embedding, index_name=index)
 
-    return
-
 @st.experimental_fragment
 def add_data_to_index(url: str, embedding: OctoAIEmbeddings, index: str):
+    """ add data to a pinecone index """
     with st.status("Scanning URL for links...") as status:
         helpers = Helpers()
-        helpers.get_links(url, url)
+        helpers.get_links(url, url, lvl=2)
         st.write("Extracting and Partitioning Data...")
         helpers.get_data()
         st.write(f"Loading VectorDb Index: {index}")
         load_vector_store(helpers.agg_chunks, embedding, index)
-        status.update(f"Data load into {index} complete!")
+        status.update(label=f"Data load into {index} complete!", state="complete")
 
 def main() -> None:
     """app entrypoint"""
@@ -131,23 +131,21 @@ def main() -> None:
             score = st.slider("similarity_score_threshold", 0.0, 1.0, 0.9)
         model: str = st.selectbox("Model", options=models, index=models.index("mixtral-8x7b-instruct"))
         max_tokens: int = st.slider("max_tokens", 128, 1024, 512)
-        presence_penalty: float = st.slider("presence_penalty", 0.0, 0.0, 1.0)
+        presence_penalty: float = st.slider("presence_penalty", 0.0, 1.0, 0.0)
         temperature: float = st.slider("temperature", 0.0, 2.0, 0.75)
         top_p: float = st.slider("top_p", 0.0, 1.0, 0.95)
         st.divider()
         st.subheader("Add More Context")
         st.text_input("url", key="ingest")
         if "ingest" in st.session_state:
-            os.write(1, "url in session state".encode())
             if st.button("Scan"):
-                os.write(1, "downloading context".encode())
                 add_data_to_index(
                     url=st.session_state.ingest,
                     embedding=embed,
                     index=index_name
                 )
 
-    llm = return_llm(
+    llm: OctoAIEndpoint = return_llm(
         model=model,
         max_tokens=max_tokens,
         presence_penalty=presence_penalty,
@@ -171,25 +169,22 @@ def main() -> None:
     else:
         chain = get_chain(rag=enable_rag, llm=llm, prompt=prompt)
 
-    try:
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-        if prompt := st.chat_input(""):
-            st.session_state.messages.append({"role": "human", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+    if prompt := st.chat_input(""):
+        st.session_state.messages.append({"role": "human", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-            with st.chat_message("assistant"):
-                response = st.write_stream(exec_llm(prompt, chain))
-            st.session_state.messages.append({"role": "ai", "content": response})
-
-    except Exception as e:
-        os.write(1, str(e).encode())
+        with st.chat_message("assistant"):
+            response = exec_llm(prompt, chain)
+            st.markdown(response)
+        st.session_state.messages.append({"role": "ai", "content": response})
 
 
 if __name__ == "__main__":
