@@ -4,6 +4,7 @@ Description: A really simple RAG demo using OctoAI and Milvus vector database
 """
 
 import os
+import octoai.chat
 import streamlit as st
 from dotenv import load_dotenv
 from langchain.chains import LLMChain

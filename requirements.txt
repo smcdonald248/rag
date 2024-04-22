@@ -3,7 +3,6 @@ langchain
 langchain-pinecone
 sentence-transformers
 tiktoken
-octoai
 octoai-sdk
 python-dotenv
 playwright
