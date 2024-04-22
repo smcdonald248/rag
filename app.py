@@ -136,9 +136,9 @@ def main() -> None:
         st.subheader("Add More Context")
         st.text_input("url", key="ingest")
         if "ingest" in st.session_state:
-            os.write(0, "url in session state".encode())
+            os.write(1, "url in session state".encode())
             if st.button("Scan"):
-                os.write(0, "downloading context".encode())
+                os.write(1, "downloading context".encode())
                 add_data_to_index(
                     url=st.session_state.ingest,
                     embedding=embed,
