@@ -1,11 +1,11 @@
 streamlit
 langchain
-pymilvus
-milvus
+langchain-pinecone
 sentence-transformers
 tiktoken
+octoai
 octoai-sdk
 python-dotenv
-nest_asyncio
 playwright
 bs4
+pinecone
