@@ -119,6 +119,7 @@ def main() -> None:
         endpoint_url="https://text.octoai.run/v1/embeddings",
         octoai_api_token=os.getenv("OCTOAI_API_TOKEN"),
     )
+    models: list = octoai.chat.get_model_list()
 
     st.title("RAG Demo")
     with st.sidebar:
@@ -128,7 +129,7 @@ def main() -> None:
         if enable_rag:
             index_name = st.text_input("index_name", "rag-demo")
             score = st.slider("similarity_score_threshold", 0.0, 1.0, 0.9)
-        model: str = st.selectbox("Model", octoai.chat.get_model_list())
+        model: str = st.selectbox("Model", options=models, index=models.index("mixtral-8x7b-instruct"))
         max_tokens: int = st.slider("max_tokens", 128, 1024, 512)
         presence_penalty: float = st.slider("presence_penalty", 0.0, 0.0, 1.0)
         temperature: float = st.slider("temperature", 0.0, 2.0, 0.75)
