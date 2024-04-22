@@ -1,5 +1,6 @@
 import os
 import requests
+import subprocess
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from langchain_community.document_loaders import AsyncChromiumLoader
@@ -43,7 +44,11 @@ class Helpers:
         """chunk and return data"""
         if self.links:
             loader = AsyncChromiumLoader(self.links)
-            docs = loader.load()
+            try:
+                docs = loader.load()
+            except:
+                subprocess.run(["playwright", "install"])
+                docs = loader.load()
             transformed_docs = BeautifulSoupTransformer().transform_documents(
                 docs, tags_to_extract=["div"]
             )
