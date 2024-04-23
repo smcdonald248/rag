@@ -1,3 +1,7 @@
+## Try It Here
+
+https://smcdonald-rag.streamlit.app/
+
 ## To run locally <br>
 
   
