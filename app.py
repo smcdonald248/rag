@@ -123,27 +123,30 @@ def main() -> None:
 
     st.title("RAG Demo")
     with st.sidebar:
-        st.header("Menu")
-        enable_rag: bool = st.toggle("Enable RAG")
+        st.header("Options")
 
-        if enable_rag:
-            index_name = st.text_input("index_name", "rag-demo")
-            score = st.slider("similarity_score_threshold", 0.0, 1.0, 0.9)
         model: str = st.selectbox("Model", options=models, index=models.index("mixtral-8x7b-instruct"))
         max_tokens: int = st.slider("max_tokens", 128, 1024, 512)
         presence_penalty: float = st.slider("presence_penalty", 0.0, 1.0, 0.0)
         temperature: float = st.slider("temperature", 0.0, 2.0, 0.75)
         top_p: float = st.slider("top_p", 0.0, 1.0, 0.95)
         st.divider()
-        st.subheader("Add More Context")
-        st.text_input("url", key="ingest")
-        if "ingest" in st.session_state:
-            if st.button("Scan"):
-                add_data_to_index(
-                    url=st.session_state.ingest,
-                    embedding=embed,
-                    index=index_name
-                )
+
+        enable_rag: bool = st.toggle("Enable RAG")
+        if enable_rag:
+            st.header("RAG Options")
+            index_name = st.text_input("index_name", "rag-demo")
+            score = st.slider("similarity_score_threshold", 0.0, 1.0, 0.9)
+            st.subheader("Add More Context")
+            st.text_input("url", key="ingest")
+
+            if "ingest" in st.session_state:
+                if st.button("Scan"):
+                    add_data_to_index(
+                        url=st.session_state.ingest,
+                        embedding=embed,
+                        index=index_name
+                    )
 
     llm: OctoAIEndpoint = return_llm(
         model=model,
