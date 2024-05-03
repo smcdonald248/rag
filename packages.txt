@@ -47,4 +47,4 @@ libEGL.so.1
 libGLX.so.0
 libgudev-1.0.so.0
 libGLESv2.so.2
-libx264.so  
+libx264.so
