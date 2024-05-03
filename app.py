@@ -121,6 +121,7 @@ def main() -> None:
     )
     models: list = octoai.chat.get_model_list()
     # Adding new models that aren't yet listed as available
+    models.append("mixtral-8x22b")
     models.append("meta-llama-3-8b-instruct")
     models.append("meta-llama-3-70b-instruct")
 
