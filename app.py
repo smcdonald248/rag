@@ -120,6 +120,9 @@ def main() -> None:
         octoai_api_token=os.getenv("OCTOAI_API_TOKEN"),
     )
     models: list = octoai.chat.get_model_list()
+    # Adding new models that aren't yet listed as available
+    models.append("meta-llama-3-8b-instruct")
+    models.append("meta-llama-3-70b-instruct")
 
     st.title("RAG Demo")
     with st.sidebar:
@@ -135,7 +138,7 @@ def main() -> None:
         enable_rag: bool = st.toggle("Enable RAG")
         if enable_rag:
             st.header("RAG Options")
-            index_name = st.text_input("index_name", "rag-demo")
+            index_name = st.text_input("index_name", "octo")
             score = st.slider("similarity_score_threshold", 0.0, 1.0, 0.9)
             st.subheader("Add More Context")
             st.text_input("url", key="ingest")

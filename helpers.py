@@ -37,9 +37,10 @@ class Helpers:
                     if base in full_url:
                         if full_url not in self.links:
                             self.get_links(base, full_url, lvl-1)
-        except:
+        except Exception as e:
+            os.write(1, f"get links exception: {str(e)}")
             return
-    
+
     def get_data(self) -> list:
         """chunk and return data"""
         if self.links:
@@ -47,10 +48,10 @@ class Helpers:
             try:
                 docs = loader.load()
             except:
-                subprocess.run(["playwright", "install"])
+                subprocess.run(["playwright", "install"], check=False)
                 docs = loader.load()
             transformed_docs = BeautifulSoupTransformer().transform_documents(
-                docs, tags_to_extract=["div"]
+                docs, tags_to_extract=["p", "div", "li"]
             )
 
             splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
