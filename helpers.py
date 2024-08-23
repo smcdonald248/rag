@@ -15,22 +15,25 @@ class Helpers:
         self.links: list = []
         self.agg_chunks: list = []
 
-    def get_links(self, base, url, lvl=2) -> None:
+    def get_links(self, base, url, lvl=3) -> None:
         """link scraper"""
         if lvl == 0:
             return
 
         self.links.append(url)
+        loader = AsyncChromiumLoader([url])
 
         try:
-            response = requests.get(url, timeout=5)
+            response = loader.load()
 
-            if response.status_code != 200:
+            if not response[0]:
                 return
 
-            soup = BeautifulSoup(response.text, "html.parser")
+            soup = BeautifulSoup(response[0].page_content, "html.parser")
 
+            os.write(1, f"soup: {soup.find_all('a')}".encode())
             for link in soup.find_all("a"):
+                os.write(1, f"link: {link}".encode())
                 href = link.get("href")
                 if href:
                     full_url = urljoin(url, href)
@@ -38,11 +41,12 @@ class Helpers:
                         if full_url not in self.links:
                             self.get_links(base, full_url, lvl-1)
         except Exception as e:
-            os.write(1, f"get links exception: {str(e)}")
+            os.write(1, f"get links exception: {e}".encode())
             return
 
     def get_data(self) -> list:
         """chunk and return data"""
+        os.write(1, f"links: {self.links}".encode())
         if self.links:
             loader = AsyncChromiumLoader(self.links)
             try:

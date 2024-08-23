@@ -58,7 +58,9 @@ def return_template(rag: bool) -> str:
                     Keep your answer grounded in the facts of the CONTEXT.
                     Ignore the CONTEXT if it is not relevant and answer from
                     pre-trained knowledge.
-                    Do not tell the user that about the CONTEXT.
+                    Do not tell the user that about the CONTEXT. If the context
+                    is includes a link to the source of the retrieved context, then
+                    include the link your response.
                 """
     else:
         return """
@@ -106,7 +108,7 @@ def add_data_to_index(url: str, embedding: OctoAIEmbeddings, index: str):
     """ add data to a pinecone index """
     with st.status("Scanning URL for links...") as status:
         helpers = Helpers()
-        helpers.get_links(url, url, lvl=2)
+        helpers.get_links(url, url, lvl=3)
         st.write("Extracting and Partitioning Data...")
         helpers.get_data()
         st.write(f"Loading VectorDb Index: {index}")
@@ -119,17 +121,18 @@ def main() -> None:
         endpoint_url="https://text.octoai.run/v1/embeddings",
         octoai_api_token=os.getenv("OCTOAI_API_TOKEN"),
     )
-    models: list = octoai.chat.get_model_list()
+    models: list = []
     # Adding new models that aren't yet listed as available
-    models.append("mixtral-8x22b")
-    models.append("meta-llama-3-8b-instruct")
-    models.append("meta-llama-3-70b-instruct")
+    models.append("mixtral-8x7b-instruct")
+    models.append("meta-llama-3.1-8b-instruct")
+    models.append("meta-llama-3.1-70b-instruct")
+    models.append("meta-llama-3.1-405b-instruct")
 
     st.title("RAG Demo")
     with st.sidebar:
         st.header("Options")
 
-        model: str = st.selectbox("Model", options=models, index=models.index("mixtral-8x7b-instruct"))
+        model: str = st.selectbox("Model", options=models, index=models.index("meta-llama-3.1-8b-instruct"))
         max_tokens: int = st.slider("max_tokens", 128, 1024, 512)
         presence_penalty: float = st.slider("presence_penalty", 0.0, 1.0, 0.0)
         temperature: float = st.slider("temperature", 0.0, 2.0, 0.75)
