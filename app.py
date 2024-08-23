@@ -4,13 +4,12 @@ Description: A really simple RAG demo using Streamlit, OctoAI, and Pincone.io
 """
 
 import os
-import octoai.chat
 import streamlit as st
 from dotenv import load_dotenv
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain_community.embeddings import OctoAIEmbeddings
-from langchain_community.llms.octoai_endpoint import OctoAIEndpoint
+from langchain_openai import ChatOpenAI
 from langchain_core.runnables import RunnablePassthrough, Runnable
 from langchain_core.output_parsers import StrOutputParser
 from langchain_pinecone import PineconeVectorStore
@@ -26,23 +25,18 @@ def return_llm(
     presence_penalty: float,
     temperature: float,
     top_p: float,
-) -> OctoAIEndpoint:
+    streaming: bool
+) -> ChatOpenAI:
     """ returns an OctoAI LLM Endpoint """
-    return OctoAIEndpoint(
-        endpoint_url="https://text.octoai.run/v1/chat/completions",
-        model_kwargs={
-            "model": model,
-            "max_tokens": max_tokens,
-            "presence_penalty": presence_penalty,
-            "temperature": temperature,
-            "top_p": top_p,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant. Keep your responses limited to one short paragraph if possible.",
-                },
-            ],
-        },
+    return ChatOpenAI(
+        base_url="https://text.octoai.run/v1/",
+        api_key=os.getenv("OCTOAI_TOKEN"),
+        model=model,
+        max_tokens=max_tokens,
+        presence_penalty=presence_penalty,
+        temperature=temperature,
+        top_p=top_p,
+        streaming=streaming
     )
 
 
@@ -52,15 +46,18 @@ def return_template(rag: bool) -> str:
         return """
                     CONTEXT: {context}
                     QUESTION: {question}
-
+                    SUPPORT FORM: https://creator.nightcafe.studio/feedback
+                    
                     Instructions:
                     Answer the users QUESTION using the CONTEXT text above.
                     Keep your answer grounded in the facts of the CONTEXT.
                     Ignore the CONTEXT if it is not relevant and answer from
                     pre-trained knowledge.
-                    Do not tell the user that about the CONTEXT. If the context
+                    Do not tell the user about the CONTEXT. If the context
                     is includes a link to the source of the retrieved context, then
                     include the link your response.
+                    If the context includes instructions to contact support, provide
+                    the link SUPPORT FORM that is listed above.
                 """
     else:
         return """
@@ -73,7 +70,7 @@ def return_template(rag: bool) -> str:
 
 
 def get_chain(
-    llm: OctoAIEndpoint,
+    llm: ChatOpenAI,
     rag: bool,
     prompt: PromptTemplate,
     retriever: PineconeVectorStore = None,
@@ -92,11 +89,12 @@ def get_chain(
     return chain
 
 
-def exec_llm(form_question: str, llm_chain: LLMChain) -> str:
+def exec_llm(form_question: str, llm_chain: LLMChain, streaming: bool) -> str:
     """execute the llm chain"""
-    # for chunk in llm_chain.stream(form_question):
-    #     yield chunk
-    return llm_chain.invoke(form_question) #.get("text")
+    if streaming:
+        return llm_chain.stream(form_question)
+    else:
+        return llm_chain.invoke(form_question)
 
 
 def load_vector_store(data: str, embedding: OctoAIEmbeddings, index: str) -> None:
@@ -108,7 +106,7 @@ def add_data_to_index(url: str, embedding: OctoAIEmbeddings, index: str):
     """ add data to a pinecone index """
     with st.status("Scanning URL for links...") as status:
         helpers = Helpers()
-        helpers.get_links(url, url, lvl=3)
+        helpers.get_links(url, url, lvl=4)
         st.write("Extracting and Partitioning Data...")
         helpers.get_data()
         st.write(f"Loading VectorDb Index: {index}")
@@ -133,10 +131,11 @@ def main() -> None:
         st.header("Options")
 
         model: str = st.selectbox("Model", options=models, index=models.index("meta-llama-3.1-8b-instruct"))
-        max_tokens: int = st.slider("max_tokens", 128, 1024, 512)
+        max_tokens: int = st.slider("max_tokens", 128, 8192, 4096)
         presence_penalty: float = st.slider("presence_penalty", 0.0, 1.0, 0.0)
-        temperature: float = st.slider("temperature", 0.0, 2.0, 0.75)
-        top_p: float = st.slider("top_p", 0.0, 1.0, 0.95)
+        temperature: float = st.slider("temperature", 0.0, 2.0, 0.0)
+        top_p: float = st.slider("top_p", 0.0, 1.0, 1.0)
+        streaming: bool = st.toggle("Streaming")
         st.divider()
 
         enable_rag: bool = st.toggle("Enable RAG")
@@ -155,16 +154,19 @@ def main() -> None:
                         index=index_name
                     )
 
-    llm: OctoAIEndpoint = return_llm(
+    llm: ChatOpenAI = return_llm(
         model=model,
         max_tokens=max_tokens,
         presence_penalty=presence_penalty,
         temperature=temperature,
         top_p=top_p,
+        streaming=streaming
     )
+    
     prompt: PromptTemplate = PromptTemplate.from_template(
         return_template(rag=enable_rag)
     )
+    
     if enable_rag:
         pcvs = PineconeVectorStore(index_name=index_name, embedding=embed)
         chain = get_chain(
@@ -192,9 +194,12 @@ def main() -> None:
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            response = exec_llm(prompt, chain)
-            st.markdown(response)
-        st.session_state.messages.append({"role": "ai", "content": response})
+            response = exec_llm(prompt, chain, streaming)
+            if streaming:
+                response = st.write_stream(response)
+            else:
+                st.markdown(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 if __name__ == "__main__":
