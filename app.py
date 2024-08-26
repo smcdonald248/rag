@@ -30,7 +30,7 @@ def return_llm(
     """ returns an OctoAI LLM Endpoint """
     return ChatOpenAI(
         base_url="https://text.octoai.run/v1/",
-        api_key=os.getenv("OCTOAI_TOKEN"),
+        api_key=os.getenv("OCTOAI_API_TOKEN"),
         model=model,
         max_tokens=max_tokens,
         presence_penalty=presence_penalty,
