@@ -202,11 +202,8 @@ def main() -> None:
             response = exec_llm(prompt, chain, streaming)
             if streaming:
                 response = st.write_stream(response)
-                os.write(1 , f"{response}".encode())
-                st.markdown(response.response_metadata["token_usage"])
             else:
                 st.markdown(response.content)
-                st.markdown(response.response_metadata["token_usage"])
         st.session_state.messages.append({"role": "assistant", "content": response})
 
 
