@@ -36,7 +36,10 @@ def return_llm(
         presence_penalty=presence_penalty,
         temperature=temperature,
         top_p=top_p,
-        streaming=streaming
+        streaming=streaming,
+        stream_options={
+            "include_usage":streaming
+        }
     )
 
 
@@ -85,13 +88,15 @@ def get_chain(
             | StrOutputParser()
         )
     else:
-        chain: Runnable = prompt | llm | StrOutputParser()
+        chain: Runnable = prompt | llm #| StrOutputParser()
     return chain
 
 
 def exec_llm(form_question: str, llm_chain: LLMChain, streaming: bool) -> str:
     """execute the llm chain"""
     if streaming:
+        for event in llm_chain.stream(form_question):
+            os.write(1, f"{event}".encode())
         return llm_chain.stream(form_question)
     else:
         return llm_chain.invoke(form_question)
@@ -197,8 +202,11 @@ def main() -> None:
             response = exec_llm(prompt, chain, streaming)
             if streaming:
                 response = st.write_stream(response)
+                os.write(1 , f"{response}".encode())
+                st.markdown(response.response_metadata["token_usage"])
             else:
-                st.markdown(response)
+                st.markdown(response.content)
+                st.markdown(response.response_metadata["token_usage"])
         st.session_state.messages.append({"role": "assistant", "content": response})
 
 

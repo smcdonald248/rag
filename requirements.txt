@@ -2,6 +2,7 @@ streamlit
 langchain==0.1.14
 langchain-core==0.1.40
 langchain-community==0.0.31
+langchain-openai
 langchain-pinecone
 sentence-transformers
 tiktoken
