@@ -7,9 +7,10 @@ from langchain_community.document_loaders import AsyncChromiumLoader
 from langchain_community.document_transformers import BeautifulSoupTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
+
 class Helpers:
 
-    def __init__(self, chunk_size: int = 1300, chunk_overlap: int = 5):
+    def __init__(self, chunk_size: int = 1024, chunk_overlap: int = 102):
         self.chunk_size: int = chunk_size
         self.chunk_overlap: int = chunk_overlap
         self.links: list = []
@@ -31,15 +32,13 @@ class Helpers:
 
             soup = BeautifulSoup(response[0].page_content, "html.parser")
 
-            os.write(1, f"soup: {soup.find_all('a')}".encode())
             for link in soup.find_all("a"):
-                os.write(1, f"link: {link}".encode())
                 href = link.get("href")
                 if href:
                     full_url = urljoin(url, href)
                     if base in full_url:
                         if full_url not in self.links:
-                            self.get_links(base, full_url, lvl-1)
+                            self.get_links(base, full_url, lvl - 1)
         except Exception as e:
             os.write(1, f"get links exception: {e}".encode())
             return
@@ -64,6 +63,5 @@ class Helpers:
 
             chunks = splitter.split_documents(transformed_docs)
             self.agg_chunks += chunks
-            os.write(1, f"{self.agg_chunks}\n".encode())
         else:
             self.agg_chunks += chunks

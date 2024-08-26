@@ -25,9 +25,9 @@ def return_llm(
     presence_penalty: float,
     temperature: float,
     top_p: float,
-    streaming: bool
+    streaming: bool,
 ) -> ChatOpenAI:
-    """ returns an OctoAI LLM Endpoint """
+    """returns an OctoAI LLM Endpoint"""
     return ChatOpenAI(
         base_url="https://text.octoai.run/v1/",
         api_key=os.getenv("OCTOAI_API_TOKEN"),
@@ -37,14 +37,12 @@ def return_llm(
         temperature=temperature,
         top_p=top_p,
         streaming=streaming,
-        stream_options={
-            "include_usage":streaming
-        }
+        stream_options={"include_usage": streaming},
     )
 
 
 def return_template(rag: bool) -> str:
-    """ returns the prompt template conditionally """
+    """returns the prompt template conditionally"""
     if rag:
         return """
                     CONTEXT: {context}
@@ -54,11 +52,13 @@ def return_template(rag: bool) -> str:
                     Instructions:
                     Answer the users QUESTION using the CONTEXT text above.
                     Keep your answer grounded in the facts of the CONTEXT.
-                    Ignore the CONTEXT if it is not relevant and answer from
-                    pre-trained knowledge.
-                    Do not tell the user about the CONTEXT. If the context
-                    is includes a link to the source of the retrieved context, then
-                    include the link your response.
+                    If the answer is not included in the CONTEXT, then do not
+                    attempt to answer the question, instead apologize stating that
+                    the information requested is not in the nightcafe knowledge base.
+
+                    Do not tell the user about the CONTEXT. Please include a citation
+                    with a link to source knowledge base.
+
                     If the context includes instructions to contact support, provide
                     the link SUPPORT FORM that is listed above.
                 """
@@ -88,15 +88,15 @@ def get_chain(
             | StrOutputParser()
         )
     else:
-        chain: Runnable = prompt | llm #| StrOutputParser()
+        chain: Runnable = (
+            {"question": RunnablePassthrough()} | prompt | llm | StrOutputParser()
+        )
     return chain
 
 
 def exec_llm(form_question: str, llm_chain: LLMChain, streaming: bool) -> str:
     """execute the llm chain"""
     if streaming:
-        for event in llm_chain.stream(form_question):
-            os.write(1, f"{event}".encode())
         return llm_chain.stream(form_question)
     else:
         return llm_chain.invoke(form_question)
@@ -106,17 +106,19 @@ def load_vector_store(data: str, embedding: OctoAIEmbeddings, index: str) -> Non
     """load vector database with data from documentation url"""
     PineconeVectorStore.from_documents(data, embedding, index_name=index)
 
+
 @st.experimental_fragment
 def add_data_to_index(url: str, embedding: OctoAIEmbeddings, index: str):
-    """ add data to a pinecone index """
+    """add data to a pinecone index"""
     with st.status("Scanning URL for links...") as status:
         helpers = Helpers()
-        helpers.get_links(url, url, lvl=4)
+        helpers.get_links(url, url, lvl=2)
         st.write("Extracting and Partitioning Data...")
         helpers.get_data()
         st.write(f"Loading VectorDb Index: {index}")
         load_vector_store(helpers.agg_chunks, embedding, index)
         status.update(label=f"Data load into {index} complete!", state="complete")
+
 
 def main() -> None:
     """app entrypoint"""
@@ -135,18 +137,20 @@ def main() -> None:
     with st.sidebar:
         st.header("Options")
 
-        model: str = st.selectbox("Model", options=models, index=models.index("meta-llama-3.1-8b-instruct"))
+        model: str = st.selectbox(
+            "Model", options=models, index=models.index("meta-llama-3.1-70b-instruct")
+        )
         max_tokens: int = st.slider("max_tokens", 128, 8192, 4096)
         presence_penalty: float = st.slider("presence_penalty", 0.0, 1.0, 0.0)
         temperature: float = st.slider("temperature", 0.0, 2.0, 0.0)
         top_p: float = st.slider("top_p", 0.0, 1.0, 1.0)
-        streaming: bool = st.toggle("Streaming")
+        streaming: bool = st.toggle("Streaming", value=True)
         st.divider()
 
         enable_rag: bool = st.toggle("Enable RAG")
         if enable_rag:
             st.header("RAG Options")
-            index_name = st.text_input("index_name", "octo")
+            index_name = st.text_input("index_name", "nc")
             score = st.slider("similarity_score_threshold", 0.0, 1.0, 0.9)
             st.subheader("Add More Context")
             st.text_input("url", key="ingest")
@@ -154,9 +158,7 @@ def main() -> None:
             if "ingest" in st.session_state:
                 if st.button("Scan"):
                     add_data_to_index(
-                        url=st.session_state.ingest,
-                        embedding=embed,
-                        index=index_name
+                        url=st.session_state.ingest, embedding=embed, index=index_name
                     )
 
     llm: ChatOpenAI = return_llm(
@@ -165,13 +167,13 @@ def main() -> None:
         presence_penalty=presence_penalty,
         temperature=temperature,
         top_p=top_p,
-        streaming=streaming
+        streaming=streaming,
     )
-    
+
     prompt: PromptTemplate = PromptTemplate.from_template(
         return_template(rag=enable_rag)
     )
-    
+
     if enable_rag:
         pcvs = PineconeVectorStore(index_name=index_name, embedding=embed)
         chain = get_chain(
